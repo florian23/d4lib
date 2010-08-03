@@ -6,7 +6,7 @@ import java.util.TreeMap;
 
 /**
  * Die Klasse KeywordLocations verwaltet die Zuordnung eines Strings auf die
- * Indexposition in dem der String im Text anfängt.
+ * Indexposition in dem der String im Text anf√§ngt.
  * 
  * @author florian
  * 
@@ -22,9 +22,9 @@ public class KeywordLocations {
 	/**
 	 * addLocation speichert zu den Strings in output ab an welcher
 	 * Indexposition sie anfangen. Dabei ist i die letzte Indexposition an dem
-	 * die Strings im Text aufhören.
+	 * die Strings im Text aufh√∂ren.
 	 * 
-	 * Für einen String s und einem Index i gilt, dass die Stringposition im Text gleich
+	 * F√ºr einen String s und einem Index i gilt, dass die Stringposition im Text gleich
 	 * i-lengthOf(s)+1 ist.
 	 * 
 	 * @param output
@@ -55,8 +55,8 @@ public class KeywordLocations {
 	}
 
 	/**
-	 * Print gibt aus an welchen Indexpositionen im Text ein Schlüsselwort
-	 * anfängt.
+	 * Print gibt aus an welchen Indexpositionen im Text ein Schl√ºsselwort
+	 * anf√§ngt.
 	 */
 	public void print() {
 		for (String key : keywords_at_position.keySet()) {
