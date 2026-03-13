@@ -1,7 +1,7 @@
-package algorithm.stringmatching;
+package d4lib.ahocorasick;
 
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -14,7 +14,7 @@ import java.util.TreeMap;
  */
 public class KeywordLocations {
 
-	private final TreeMap<String, List<Integer>> keywordsAtPosition = new TreeMap<>();
+	private final TreeMap<String, LinkedHashSet<Integer>> keywordsAtPosition = new TreeMap<>();
 
 	/**
 	 * Speichert fuer jeden String in output die Startposition im Text.
@@ -25,12 +25,9 @@ public class KeywordLocations {
 	 * @param i letzte Indexposition des Matches
 	 */
 	public void addLocation(List<String> output, int i) {
-		for (String s : output) {
-			int startPos = i - s.length() + 1;
-			List<Integer> positions = keywordsAtPosition.computeIfAbsent(s, k -> new ArrayList<>());
-			if (!positions.contains(startPos)) {
-				positions.add(startPos);
-			}
+		for (var s : output) {
+			var startPos = i - s.length() + 1;
+			keywordsAtPosition.computeIfAbsent(s, k -> new LinkedHashSet<>()).add(startPos);
 		}
 	}
 
@@ -40,15 +37,19 @@ public class KeywordLocations {
 	 * @return unveraenderbare Map von Keyword zu Liste der Startpositionen
 	 */
 	public Map<String, List<Integer>> getLocations() {
-		return Collections.unmodifiableMap(keywordsAtPosition);
+		var result = new TreeMap<String, List<Integer>>();
+		for (var entry : keywordsAtPosition.entrySet()) {
+			result.put(entry.getKey(), List.copyOf(entry.getValue()));
+		}
+		return Collections.unmodifiableMap(result);
 	}
 
 	/**
 	 * Gibt aus, an welchen Indexpositionen im Text ein Schluesselwort anfaengt.
 	 */
 	public void print() {
-		for (Map.Entry<String, List<Integer>> entry : keywordsAtPosition.entrySet()) {
-			System.out.println("Key " + entry.getKey() + " an Positionen " + entry.getValue());
+		for (var entry : keywordsAtPosition.entrySet()) {
+			System.out.println("Key " + entry.getKey() + " an Positionen " + List.copyOf(entry.getValue()));
 		}
 	}
 }

@@ -5,8 +5,10 @@ Java-Implementierung des [Aho-Corasick Algorithmus](https://en.wikipedia.org/wik
 ## Verwendung
 
 ```java
-PatternMatchingMachine pmm = PatternMatchingMachine.create("he", "she", "his", "hers");
-KeywordLocations locations = pmm.match("ushers");
+import d4lib.ahocorasick.PatternMatchingMachine;
+
+var pmm = PatternMatchingMachine.create("he", "she", "his", "hers");
+var locations = pmm.match("ushers");
 locations.print();
 // Key he an Positionen [2]
 // Key hers an Positionen [2]
@@ -16,9 +18,9 @@ locations.print();
 Alternativ mit einer Liste:
 
 ```java
-List<String> keywords = Arrays.asList("he", "she", "his", "hers");
-PatternMatchingMachine pmm = PatternMatchingMachine.create(keywords);
-Map<String, List<Integer>> result = pmm.match("ushers").getLocations();
+var keywords = List.of("he", "she", "his", "hers");
+var pmm = PatternMatchingMachine.create(keywords);
+var result = pmm.match("ushers").getLocations();
 ```
 
 ## Algorithmus
@@ -38,17 +40,17 @@ Voraussetzungen: Java 21+
 
 ```bash
 # Kompilieren
-javac -d target/classes src/main/java/algorithm/stringmatching/*.java
+javac -d target/classes src/main/java/d4lib/ahocorasick/*.java
 
-# Ausfuehren
-java -cp target/classes algorithm.stringmatching.PatternMatchingMachine
+# Demo ausfuehren
+java -cp target/classes d4lib.ahocorasick.Demo
 
 # Tests (JUnit 4 JAR benoetigt)
 javac -cp "target/classes:path/to/junit-4.13.2.jar:path/to/hamcrest-core-1.3.jar" \
-  -d target/test-classes src/test/java/algorithm/stringmatching/*.java
+  -d target/test-classes src/test/java/d4lib/ahocorasick/*.java
 
 java -cp "target/classes:target/test-classes:path/to/junit-4.13.2.jar:path/to/hamcrest-core-1.3.jar" \
-  org.junit.runner.JUnitCore algorithm.stringmatching.PatternMatchingMachineTest
+  org.junit.runner.JUnitCore d4lib.ahocorasick.PatternMatchingMachineTest
 ```
 
 Eine `pom.xml` fuer Maven ist enthalten. Maven-Build funktioniert, sobald eine Verbindung zu Maven Central besteht:
@@ -62,9 +64,10 @@ mvn test
 
 ```
 src/
-  main/java/algorithm/stringmatching/
+  main/java/d4lib/ahocorasick/
     PatternMatchingMachine.java   - Kernalgorithmus (Aho-Corasick)
     KeywordLocations.java         - Ergebnis-Container
-  test/java/algorithm/stringmatching/
-    PatternMatchingMachineTest.java - JUnit-Tests (11 Testfaelle)
+    Demo.java                     - Beispielanwendung
+  test/java/d4lib/ahocorasick/
+    PatternMatchingMachineTest.java - JUnit-Tests (10 Testfaelle)
 ```
