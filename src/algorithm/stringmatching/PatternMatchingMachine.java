@@ -1,6 +1,9 @@
 package algorithm.stringmatching;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -55,20 +58,13 @@ import java.util.TreeMap;
  * Zustand und dem zu lesenden Zeichen auf einen Folgezustand abbildet.
  * 
  * 
- * TODO
- * 
+ * Bekannte behobene Bugs:
+ *
  * <ul>
- * <li>Deterministischer Algorithmus für die goto Funktion implementieren
- * (Algorithmus_4)
- * <li>Findet hers nicht bei der Eingabenreihenfolge {he,she,his,hers} wenn
- * delta Funktion benutzt wird!
- * <li>Crasht wenn nach dem Einfügen von hers noch ein her eingefügt wird. In
- * der Funktion {@link #enter(String, Integer)} wird solange durchiteriert bis
- * ein Nachfolgezustand ungleich FAIL ist, dann haben wir aber
- * IndexOutOfBounds->Keywords müssen der Länge nach sortiert sein und nicht
- * doppelt vorkommen. Behebt das Problem dadrüber aber nicht. Bislang gibt die
- * delta Funktion ein 0 zurück falls ein Wert nicht gefunden wurde, ist das so
- * richtig? sein.
+ * <li>Delta-Funktion iteriert jetzt ueber alle Zeichen des Alphabets (nicht nur
+ * vorhandene Uebergaenge), sodass alle Keywords korrekt gefunden werden.
+ * <li>Keywords werden automatisch nach Laenge sortiert und dedupliziert, um
+ * IndexOutOfBounds in {@link #enter(String, Integer)} zu vermeiden.
  * </ul>
  * 
  * 
@@ -168,9 +164,39 @@ public class PatternMatchingMachine {
 	 *            Schlüsselwörter im Text.
 	 */
 	private PatternMatchingMachine(List<String> keywords) {
-		createGoTo(keywords);
+		List<String> sanitized = sanitizeKeywords(keywords);
+		createGoTo(sanitized);
 		createFailureAndOutput(goto_function, output);
 		createDeterministicStateTransitionFunction();
+	}
+
+	/**
+	 * Bereinigt die Keyword-Liste: entfernt Duplikate, leere Strings und null-Werte,
+	 * und sortiert nach Laenge aufsteigend. Die Sortierung nach Laenge ist notwendig,
+	 * damit die {@link #enter(String, Integer)} Funktion korrekt funktioniert.
+	 *
+	 * @param keywords die urspruengliche Keyword-Liste
+	 * @return bereinigte und sortierte Keyword-Liste
+	 */
+	private static List<String> sanitizeKeywords(List<String> keywords) {
+		// Null und leere Strings entfernen, Duplikate entfernen (Reihenfolge beibehalten)
+		LinkedHashSet<String> unique = new LinkedHashSet<String>();
+		for (String keyword : keywords) {
+			if (keyword != null && keyword.length() > 0) {
+				unique.add(keyword);
+			}
+		}
+
+		List<String> result = new ArrayList<String>(unique);
+
+		// Nach Laenge sortieren (kuerzeste zuerst)
+		Collections.sort(result, new Comparator<String>() {
+			public int compare(String a, String b) {
+				return a.length() - b.length();
+			}
+		});
+
+		return result;
 	}
 
 	/**
@@ -396,15 +422,17 @@ public class PatternMatchingMachine {
 
 		delta_function = new TreeMap<GoToKey, Integer>();
 
+		// Alle Zeichen des Alphabets sammeln (alle in Keywords vorkommenden Zeichen)
+		List<Character> alphabet = collectAlphabet();
+
 		Queue<Integer> queue = new LinkedList<Integer>();
 
-		List<GoToKey> zero_transitions = get_zero_transition(goto_function);
+		// Algorithmus 4: Für Zustand 0 über alle Zeichen iterieren
+		for (Character a : alphabet) {
 
-		for (GoToKey key : zero_transitions) {
+			Integer nextState = g(0, a);
 
-			Integer nextState = g(key.state, key.a);
-
-			GoToKey zero_key = new GoToKey(key.state, key.a);
+			GoToKey zero_key = new GoToKey(0, a);
 
 			delta_function.put(zero_key, nextState);
 
@@ -416,24 +444,39 @@ public class PatternMatchingMachine {
 		while (!queue.isEmpty()) {
 			Integer r = queue.poll();
 
-			List<GoToKey> nextKeys = get_keys(goto_function, r);
-
-			for (GoToKey key : nextKeys) {
-				Integer s = g(r, key.a);
+			// Über ALLE Zeichen des Alphabets iterieren, nicht nur vorhandene Übergänge
+			for (Character a : alphabet) {
+				Integer s = g(r, a);
 
 				if (!s.equals(FAIL)) {
 					queue.add(s);
 
-					GoToKey add_key = new GoToKey(r, key.a);
+					GoToKey add_key = new GoToKey(r, a);
 
 					delta_function.put(add_key, s);
 				} else {
-					GoToKey add_key = new GoToKey(r, key.a);
+					GoToKey add_key = new GoToKey(r, a);
 
-					delta_function.put(add_key, delta(f(r), key.a));
+					delta_function.put(add_key, delta(f(r), a));
 				}
 			}
 		}
+	}
+
+	/**
+	 * Sammelt alle einzigartigen Zeichen die in der GoTo-Funktion als Kanten
+	 * vorkommen. Dies entspricht dem Eingabealphabet.
+	 *
+	 * @return Liste aller Zeichen des Alphabets.
+	 */
+	private List<Character> collectAlphabet() {
+		TreeMap<Character, Boolean> seen = new TreeMap<Character, Boolean>();
+
+		for (GoToKey key : goto_function.keySet()) {
+			seen.put(key.a, true);
+		}
+
+		return new ArrayList<Character>(seen.keySet());
 	}
 
 	/**
@@ -629,19 +672,39 @@ public class PatternMatchingMachine {
 
 	public static void main(String[] args) {
 
+		System.out.println("=== Test 1: Standardbeispiel ===");
 		List<String> keywords = new ArrayList<String>();
-
 		keywords.add("he");
 		keywords.add("she");
 		keywords.add("his");
 		keywords.add("hers");
 
 		PatternMatchingMachine pmm = PatternMatchingMachine.create(keywords);
-
 		KeywordLocations keywordLocation = PatternMatchingMachine.match(
 				"ushers", pmm);
-
 		keywordLocation.print();
+
+		System.out.println("\n=== Test 2: hers vor her (ehemaliger Crash) ===");
+		List<String> keywords2 = new ArrayList<String>();
+		keywords2.add("hers");
+		keywords2.add("her");
+
+		PatternMatchingMachine pmm2 = PatternMatchingMachine.create(keywords2);
+		KeywordLocations keywordLocation2 = PatternMatchingMachine.match(
+				"ushers", pmm2);
+		keywordLocation2.print();
+
+		System.out.println("\n=== Test 3: Duplikate und leere Strings ===");
+		List<String> keywords3 = new ArrayList<String>();
+		keywords3.add("he");
+		keywords3.add("");
+		keywords3.add("he");
+		keywords3.add("she");
+
+		PatternMatchingMachine pmm3 = PatternMatchingMachine.create(keywords3);
+		KeywordLocations keywordLocation3 = PatternMatchingMachine.match(
+				"ushers", pmm3);
+		keywordLocation3.print();
 
 	}
 }
