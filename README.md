@@ -34,7 +34,7 @@ Keywords werden automatisch dedupliziert, von leeren Strings bereinigt und nach 
 
 ## Bauen und Testen
 
-Voraussetzungen: Java 11+
+Voraussetzungen: Java 21+
 
 ```bash
 # Kompilieren

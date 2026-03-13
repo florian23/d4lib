@@ -1,13 +1,13 @@
 package algorithm.stringmatching;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * PatternMatchingMachine basiert auf dem Algorithmus von Alfred V. Aho und
@@ -31,15 +31,7 @@ import java.util.TreeMap;
  */
 public class PatternMatchingMachine {
 
-	private static class GoToKey implements Comparable<GoToKey> {
-		private final int state;
-		private final char a;
-
-		GoToKey(int state, char a) {
-			this.state = state;
-			this.a = a;
-		}
-
+	private record GoToKey(int state, char a) implements Comparable<GoToKey> {
 		@Override
 		public int compareTo(GoToKey o) {
 			int ret = Integer.compare(state, o.state);
@@ -49,16 +41,20 @@ public class PatternMatchingMachine {
 
 	private static final int FAIL = -1;
 
-	private TreeMap<Integer, List<String>> output;
-	private TreeMap<GoToKey, Integer> gotoFunction;
-	private TreeMap<Integer, Integer> failureFunction;
-	private TreeMap<GoToKey, Integer> deltaFunction;
+	private final TreeMap<Integer, List<String>> output;
+	private final TreeMap<GoToKey, Integer> gotoFunction;
+	private final TreeMap<Integer, Integer> failureFunction;
+	private final TreeMap<GoToKey, Integer> deltaFunction;
 
 	private PatternMatchingMachine(List<String> keywords) {
-		List<String> sanitized = sanitizeKeywords(keywords);
+		output = new TreeMap<>();
+		gotoFunction = new TreeMap<>();
+		failureFunction = new TreeMap<>();
+
+		var sanitized = sanitizeKeywords(keywords);
 		buildGoTo(sanitized);
 		buildFailureAndOutput();
-		buildDelta();
+		deltaFunction = buildDelta();
 	}
 
 	/**
@@ -78,7 +74,7 @@ public class PatternMatchingMachine {
 	 * @return initialisierte PatternMatchingMachine
 	 */
 	public static PatternMatchingMachine create(String... keywords) {
-		return new PatternMatchingMachine(Arrays.asList(keywords));
+		return new PatternMatchingMachine(List.of(keywords));
 	}
 
 	/**
@@ -88,13 +84,13 @@ public class PatternMatchingMachine {
 	 * @return Positionen der gefundenen Schluesselwoerter
 	 */
 	public KeywordLocations match(String text) {
-		KeywordLocations keywordLocations = new KeywordLocations();
+		var keywordLocations = new KeywordLocations();
 		int state = 0;
 
 		for (int i = 0; i < text.length(); i++) {
 			state = delta(state, text.charAt(i));
 
-			List<String> out = output.get(state);
+			var out = output.get(state);
 			if (out != null && !out.isEmpty()) {
 				keywordLocations.addLocation(out, i);
 			}
@@ -114,13 +110,13 @@ public class PatternMatchingMachine {
 	}
 
 	private static List<String> sanitizeKeywords(List<String> keywords) {
-		LinkedHashSet<String> unique = new LinkedHashSet<>();
-		for (String keyword : keywords) {
+		var unique = new LinkedHashSet<String>();
+		for (var keyword : keywords) {
 			if (keyword != null && !keyword.isEmpty()) {
 				unique.add(keyword);
 			}
 		}
-		List<String> result = new ArrayList<>(unique);
+		var result = new ArrayList<>(unique);
 		result.sort(Comparator.comparingInt(String::length));
 		return result;
 	}
@@ -128,11 +124,8 @@ public class PatternMatchingMachine {
 	// === Algorithmus 2: GoTo-Funktion ===
 
 	private void buildGoTo(List<String> keywords) {
-		output = new TreeMap<>();
-		gotoFunction = new TreeMap<>();
-
 		int newstate = 0;
-		for (String keyword : keywords) {
+		for (var keyword : keywords) {
 			newstate = enter(keyword, newstate);
 		}
 	}
@@ -159,34 +152,30 @@ public class PatternMatchingMachine {
 	// === Algorithmus 3: Failure- und Output-Funktion ===
 
 	private void buildFailureAndOutput() {
-		failureFunction = new TreeMap<>();
 		Queue<Integer> queue = new LinkedList<>();
 
-		for (GoToKey key : gotoFunction.keySet()) {
-			if (key.state == 0) {
-				int s = gotoFunction.get(key);
-				if (s != 0) {
-					queue.add(s);
-					failureFunction.put(s, 0);
-				}
+		for (var entry : gotoFunction.entrySet()) {
+			if (entry.getKey().state() == 0 && entry.getValue() != 0) {
+				queue.add(entry.getValue());
+				failureFunction.put(entry.getValue(), 0);
 			}
 		}
 
 		while (!queue.isEmpty()) {
 			int r = queue.poll();
 
-			for (GoToKey key : gotoFunction.keySet()) {
-				if (key.state == r) {
-					int s = gotoFunction.get(key);
+			for (var entry : gotoFunction.entrySet()) {
+				if (entry.getKey().state() == r) {
+					int s = entry.getValue();
 					queue.add(s);
 
 					int state = f(r);
-					while (g(state, key.a) == FAIL) {
+					while (g(state, entry.getKey().a()) == FAIL) {
 						state = f(state);
 					}
-					failureFunction.put(s, g(state, key.a));
+					failureFunction.put(s, g(state, entry.getKey().a()));
 
-					List<String> outputFs = output.get(f(s));
+					var outputFs = output.get(f(s));
 					if (outputFs != null) {
 						output.computeIfAbsent(s, k -> new ArrayList<>()).addAll(outputFs);
 					}
@@ -197,14 +186,14 @@ public class PatternMatchingMachine {
 
 	// === Algorithmus 4: Deterministische Delta-Funktion ===
 
-	private void buildDelta() {
-		deltaFunction = new TreeMap<>();
-		List<Character> alphabet = collectAlphabet();
+	private TreeMap<GoToKey, Integer> buildDelta() {
+		var delta = new TreeMap<GoToKey, Integer>();
+		var alphabet = collectAlphabet();
 		Queue<Integer> queue = new LinkedList<>();
 
 		for (char a : alphabet) {
 			int nextState = g(0, a);
-			deltaFunction.put(new GoToKey(0, a), nextState);
+			delta.put(new GoToKey(0, a), nextState);
 			if (nextState != 0) {
 				queue.add(nextState);
 			}
@@ -217,36 +206,39 @@ public class PatternMatchingMachine {
 				int s = g(r, a);
 				if (s != FAIL) {
 					queue.add(s);
-					deltaFunction.put(new GoToKey(r, a), s);
+					delta.put(new GoToKey(r, a), s);
 				} else {
-					deltaFunction.put(new GoToKey(r, a), delta(f(r), a));
+					Integer resolved = delta.get(new GoToKey(f(r), a));
+					delta.put(new GoToKey(r, a), resolved != null ? resolved : 0);
 				}
 			}
 		}
+
+		return delta;
 	}
 
 	private List<Character> collectAlphabet() {
-		TreeMap<Character, Boolean> seen = new TreeMap<>();
-		for (GoToKey key : gotoFunction.keySet()) {
-			seen.put(key.a, true);
+		var seen = new TreeSet<Character>();
+		for (var key : gotoFunction.keySet()) {
+			seen.add(key.a());
 		}
-		return new ArrayList<>(seen.keySet());
+		return new ArrayList<>(seen);
 	}
 
 	// === Zustandsfunktionen ===
 
 	private int delta(int state, char a) {
-		Integer s = deltaFunction.get(new GoToKey(state, a));
+		var s = deltaFunction.get(new GoToKey(state, a));
 		return s != null ? s : 0;
 	}
 
 	private int f(int state) {
-		Integer result = failureFunction.get(state);
+		var result = failureFunction.get(state);
 		return result != null ? result : 0;
 	}
 
 	private int g(int state, char a) {
-		Integer i = gotoFunction.get(new GoToKey(state, a));
+		var i = gotoFunction.get(new GoToKey(state, a));
 		if (i != null) {
 			return i;
 		}
@@ -254,21 +246,21 @@ public class PatternMatchingMachine {
 	}
 
 	private int oldG(int state, char a) {
-		Integer i = gotoFunction.get(new GoToKey(state, a));
+		var i = gotoFunction.get(new GoToKey(state, a));
 		return i != null ? i : FAIL;
 	}
 
 	public static void main(String[] args) {
 		System.out.println("=== Test 1: Standardbeispiel ===");
-		PatternMatchingMachine pmm = PatternMatchingMachine.create("he", "she", "his", "hers");
+		var pmm = PatternMatchingMachine.create("he", "she", "his", "hers");
 		pmm.match("ushers").print();
 
 		System.out.println("\n=== Test 2: hers vor her (ehemaliger Crash) ===");
-		PatternMatchingMachine pmm2 = PatternMatchingMachine.create("hers", "her");
+		var pmm2 = PatternMatchingMachine.create("hers", "her");
 		pmm2.match("ushers").print();
 
 		System.out.println("\n=== Test 3: Duplikate und leere Strings ===");
-		PatternMatchingMachine pmm3 = PatternMatchingMachine.create("he", "", "he", "she");
+		var pmm3 = PatternMatchingMachine.create("he", "", "he", "she");
 		pmm3.match("ushers").print();
 	}
 }
